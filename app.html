@@ -65,11 +65,18 @@ select.btn{appearance:none;background:rgba(18,24,42,0.88);padding:6px 10px;min-w
 .leaflet-control-attribution{display:none!important;}
 .leaflet-tile{-webkit-filter:saturate(1.05)contrast(1.02);filter:saturate(1.05)contrast(1.02);}
 
+/* Color picker */
+.color-picker{display:flex;gap:3px;align-items:center;pointer-events:auto;margin-right:2px;}
+.color-dot{width:18px;height:18px;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0;transition:all 0.15s;flex-shrink:0;}
+.color-dot.active{border-color:#fff;transform:scale(1.2);box-shadow:0 0 8px rgba(255,255,255,0.4);}
+.color-dot:hover{transform:scale(1.15);}
+
 @media(min-width:768px){
   .top-bar{padding:14px 20px 32px;}
   .btn{font-size:14px;min-height:40px;padding:8px 16px;}
   .btn-icon{width:42px;height:42px;font-size:19px;}
   select.btn{font-size:13px;min-width:110px;}
+  .color-dot{width:22px;height:22px;}
   .panel{padding:8px 20px 14px;}
   .stats{font-size:12px;gap:12px;}
 }
@@ -88,8 +95,15 @@ select.btn{appearance:none;background:rgba(18,24,42,0.88);padding:6px 10px;min-w
     <option value="satellite">🛰️ 卫星</option>
     <option value="satellite-label">🛰️ 卫星标注</option>
   </select>
+  <div class="color-picker" id="color-picker">
+    <button class="color-dot active" data-color="blue" style="background:#1a73e8;" title="蓝色"></button>
+    <button class="color-dot" data-color="red" style="background:#ea4335;" title="红色"></button>
+    <button class="color-dot" data-color="green" style="background:#34a853;" title="绿色"></button>
+    <button class="color-dot" data-color="yellow" style="background:#ff6f00;" title="橙色"></button>
+    <button class="color-dot" data-color="purple" style="background:#9c27b0;" title="紫色"></button>
+  </div>
   <button class="btn btn-icon" id="btn-locate" title="定位">📍</button>
-  <button class="btn btn-icon" id="btn-add" title="航点">📌</button>
+  <button class="btn btn-icon" id="btn-add" title="标注">📌</button>
   <button class="btn btn-icon btn-accent" id="btn-export" title="导出">📤</button>
 </div>
 
@@ -113,7 +127,7 @@ select.btn{appearance:none;background:rgba(18,24,42,0.88);padding:6px 10px;min-w
       <button class="btn btn-sm btn-danger" id="btn-clear">🗑️ 清空</button>
     </div>
     <div class="wp-list" id="wp-list">
-      <div class="empty">点击「📌 添加」→ 点地图标记航点</div>
+      <div class="empty">点击「📌 添加」→ 点地图标注地名</div>
     </div>
   </div>
 </div>
@@ -166,8 +180,17 @@ const TILES = {
 };
 
 // ========== State ==========
-const S = { map: null, markers: [], nextId: 1, addMode: false, layer: null };
+const S = { map: null, markers: [], nextId: 1, addMode: false, layer: null, color: 'blue' };
 const SUBDOMAINS = ['01', '02', '03', '04'];
+
+// ========== Colors ==========
+const COLORS = [
+  { id: 'blue',   hex: '#1a73e8', name: '蓝色', icon: '🔵' },
+  { id: 'red',    hex: '#ea4335', name: '红色', icon: '🔴' },
+  { id: 'green',  hex: '#34a853', name: '绿色', icon: '🟢' },
+  { id: 'yellow', hex: '#ff6f00', name: '橙色', icon: '🟠' },
+  { id: 'purple', hex: '#9c27b0', name: '紫色', icon: '🟣' },
+];
 
 // ========== Toast ==========
 function toast(msg) {
@@ -210,25 +233,26 @@ function updateStatus() {
   } catch(e) {}
 }
 
-// ========== Waypoints ==========
-function addWaypoint(lng, lat, name) {
+// ========== Waypoints & Annotations ==========
+function addWaypoint(lng, lat, name, colorId) {
   const id = S.nextId++;
-  const label = name || `航点 ${id}`;
+  const label = name || `标注 ${id}`;
+  const c = COLORS.find(c => c.id === (colorId || 'blue')) || COLORS[0];
   const m = L.marker([lat, lng], {
     draggable: true,
     icon: L.divIcon({
       className: '',
-      html: `<div style="background:#1a73e8;color:#fff;padding:2px 10px;border-radius:5px;font-size:13px;font-weight:700;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.4);border:2px solid rgba(255,255,255,0.3);">${id}</div>`,
+      html: `<div style="display:flex;align-items:center;gap:4px;background:rgba(0,0,0,0.85);color:#fff;padding:3px 10px;border-radius:6px;font-size:13px;font-weight:600;white-space:nowrap;box-shadow:0 3px 12px rgba(0,0,0,0.6);border-left:4px solid ${c.hex};">${c.icon} ${label}</div>`,
       iconSize: [0,0], iconAnchor: [0,0],
     }),
   }).addTo(S.map);
-  m.bindPopup(`<strong>${label}</strong><br/><span style="color:#666;font-size:12px;font-family:monospace;">${lng.toFixed(6)}, ${lat.toFixed(6)}</span>`);
+  m.bindPopup(`<strong>${label}</strong><br/><span style="color:#999;font-size:12px;font-family:monospace;">${lng.toFixed(6)}, ${lat.toFixed(6)}</span><br/><button onclick="renameWp(${id})" style="margin-top:4px;padding:2px 10px;font-size:11px;border:none;background:#1a73e8;color:#fff;border-radius:4px;cursor:pointer;">✏️ 重命名</button>`);
   m.on('dragend', e => {
     const p = e.target.getLatLng();
     const wp = S.markers.find(w => w.m === m);
     if (wp) { wp.lng = p.lng; wp.lat = p.lat; renderList(); updateStats(); }
   });
-  S.markers.push({ id, lng, lat, name: label, m });
+  S.markers.push({ id, lng, lat, name: label, color: colorId || 'blue', m });
   renderList(); updateStats(); updateExport();
   return id;
 }
@@ -257,7 +281,9 @@ function undoLast() {
 
 function onMapClick(e) {
   if (!S.addMode) return;
-  addWaypoint(e.latlng.lng, e.latlng.lat);
+  const n = prompt('输入地名（留空自动编号）:', '');
+  if (n === null) { toast('已取消'); return; }
+  addWaypoint(e.latlng.lng, e.latlng.lat, n.trim() || null, S.color);
 }
 
 function toggleAdd() {
@@ -267,12 +293,30 @@ function toggleAdd() {
   if (S.addMode) {
     b1.style.background = '#ff6f00'; b2.style.background = '#ff6f00';
     S.map.getContainer().style.cursor = 'crosshair';
-    toast('👆 点击地图添加航点');
+    const c = COLORS.find(c => c.id === S.color) || COLORS[0];
+    toast(`${c.icon} 点击地图添加「${c.name}」标注`);
   } else {
     b1.style.background = ''; b2.style.background = '';
     S.map.getContainer().style.cursor = '';
     toast('⏸️ 退出');
   }
+}
+
+function renameWp(id) {
+  const wp = S.markers.find(w => w.id === id);
+  if (!wp) return;
+  const n = prompt('重命名:', wp.name);
+  if (n === null || n.trim() === '') return;
+  wp.name = n.trim();
+  const c = COLORS.find(c => c.id === wp.color) || COLORS[0];
+  wp.m.setIcon(L.divIcon({
+    className: '',
+    html: `<div style="display:flex;align-items:center;gap:4px;background:rgba(0,0,0,0.85);color:#fff;padding:3px 10px;border-radius:6px;font-size:13px;font-weight:600;white-space:nowrap;box-shadow:0 3px 12px rgba(0,0,0,0.6);border-left:4px solid ${c.hex};">${c.icon} ${wp.name}</div>`,
+    iconSize: [0,0], iconAnchor: [0,0],
+  }));
+  wp.m.setPopupContent(`<strong>${wp.name}</strong><br/><span style="color:#999;font-size:12px;font-family:monospace;">${wp.lng.toFixed(6)}, ${wp.lat.toFixed(6)}</span><br/><button onclick="renameWp(${wp.id})" style="margin-top:4px;padding:2px 10px;font-size:11px;border:none;background:#1a73e8;color:#fff;border-radius:4px;cursor:pointer;">✏️ 重命名</button>`);
+  renderList(); updateExport();
+  toast(`✏️ 已重命名为「${wp.name}」`);
 }
 
 function focusWp(id) {
@@ -284,18 +328,20 @@ function focusWp(id) {
 function renderList() {
   const el = document.getElementById('wp-list');
   if (!S.markers.length) {
-    el.innerHTML = '<div class="empty">点击「📌 添加」→ 点地图标记航点</div>';
+    el.innerHTML = '<div class="empty">点击「📌 添加」→ 点地图标注地名</div>';
     return;
   }
   el.innerHTML = S.markers.map((wp, i) => {
+    const c = COLORS.find(c => c.id === wp.color) || COLORS[0];
     const d = i > 0 ? dist(S.markers[i-1], wp) : 0;
     return `<div class="wp-item">
-      <div class="idx">${wp.id}</div>
+      <div class="idx" style="background:${c.hex};">${c.icon}</div>
       <div class="info">
         <div class="name">${wp.name}</div>
         <div class="coord">${wp.lng.toFixed(6)}, ${wp.lat.toFixed(6)}</div>
         ${d > 0 ? `<div class="dist">⬆️ +${d.toFixed(1)}m</div>` : ''}
       </div>
+      <button class="act" onclick="renameWp(${wp.id})" title="重命名">✏️</button>
       <button class="act" onclick="focusWp(${wp.id})">🎯</button>
       <button class="del" onclick="removeWaypoint(${wp.id})">✕</button>
     </div>`;
@@ -359,6 +405,18 @@ function bind() {
   document.getElementById('btn-locate').addEventListener('click', doLocate);
   document.getElementById('btn-add').addEventListener('click', toggleAdd);
   document.getElementById('btn-add2').addEventListener('click', toggleAdd);
+
+  // Color picker
+  document.querySelectorAll('.color-dot').forEach(el => {
+    el.addEventListener('click', () => {
+      document.querySelectorAll('.color-dot').forEach(d => d.classList.remove('active'));
+      el.classList.add('active');
+      S.color = el.dataset.color;
+      const c = COLORS.find(c => c.id === S.color) || COLORS[0];
+      toast(`${c.icon} 当前颜色: ${c.name}`);
+    });
+  });
+
   document.getElementById('btn-undo').addEventListener('click', undoLast);
   document.getElementById('btn-clear').addEventListener('click', clearAll);
   document.getElementById('btn-export').addEventListener('click', () => {
