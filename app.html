@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>DJI T100 · 高德高清地图</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans SC",sans-serif;background:#0a0e1a;color:#fff;overflow:hidden;user-select:none;-webkit-tap-highlight-color:transparent;}
+
+#map{position:fixed;inset:0;z-index:1;background:#0a0e1a;}
+
+.top-bar{position:fixed;top:0;left:0;right:0;z-index:1000;background:linear-gradient(180deg,rgba(0,0,0,0.75),transparent);padding:10px 12px 28px;display:flex;gap:5px;pointer-events:none;}
+.top-bar>*{pointer-events:auto;}
+.top-bar h1{font-size:14px;font-weight:600;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,0.6);margin-right:auto;white-space:nowrap;line-height:36px;}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:3px;padding:6px 12px;border:none;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;background:rgba(18,24,42,0.88);color:#e8ecf4;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.08);transition:all 0.1s;min-height:36px;touch-action:manipulation;}
+.btn:active{transform:scale(0.95);opacity:0.8;}
+.btn-icon{width:38px;height:38px;padding:0;border-radius:50%;font-size:17px;}
+.btn-accent{background:#ff6f00;color:#fff;border-color:#ff6f00;}
+.btn-primary{background:#1a73e8;color:#fff;border-color:#1a73e8;}
+.btn-danger{background:#ea4335;color:#fff;border-color:#ea4335;}
+.btn-sm{padding:3px 8px;font-size:11px;min-height:26px;}
+
+select.btn{appearance:none;background:rgba(18,24,42,0.88);padding:6px 10px;min-width:90px;font-size:12px;}
+
+.panel{position:fixed;bottom:0;left:0;right:0;z-index:1000;background:rgba(18,24,42,0.94);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-top:1px solid rgba(255,255,255,0.08);padding:6px 12px 10px;max-height:45vh;display:flex;flex-direction:column;}
+.panel-header{display:flex;align-items:center;gap:8px;cursor:pointer;padding:2px 0;}
+.drag-bar{width:30px;height:3px;border-radius:2px;background:rgba(255,255,255,0.15);margin:0 auto;}
+.stats{display:flex;gap:8px;font-size:11px;color:#8892b0;flex-wrap:wrap;flex:1;}
+.stats strong{color:#e8ecf4;}
+.stats .hl{color:#ff6f00;}
+.panel-body{margin-top:5px;overflow-y:auto;flex:1;}
+.panel-body.hide{display:none;}
+
+.wp-list{display:flex;flex-direction:column;gap:3px;}
+.wp-item{display:flex;align-items:center;gap:5px;padding:5px 7px;background:rgba(255,255,255,0.04);border-radius:6px;font-size:12px;}
+.wp-item .idx{width:20px;height:20px;border-radius:50%;background:#1a73e8;color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;}
+.wp-item .info{flex:1;min-width:0;line-height:1.3;}
+.wp-item .info .name{font-weight:600;color:#e8ecf4;}
+.wp-item .info .coord{color:#8892b0;font-family:monospace;font-size:10px;}
+.wp-item .info .dist{color:#ff6f00;font-size:10px;}
+.wp-item .act{width:24px;height:24px;border:none;border-radius:50%;background:rgba(255,255,255,0.06);color:#8892b0;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.wp-item .del{width:24px;height:24px;border:none;border-radius:50%;background:rgba(234,67,53,0.15);color:#ea4335;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+
+.actions{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;}
+.actions .btn{flex:1;min-width:50px;font-size:11px;padding:4px 6px;min-height:28px;}
+
+.empty{padding:16px;text-align:center;color:#8892b0;font-size:12px;}
+
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:2000;align-items:center;justify-content:center;padding:16px;}
+.modal-overlay.active{display:flex;}
+.modal{background:rgba(18,24,42,0.96);backdrop-filter:blur(20px);border-radius:14px;width:100%;max-width:480px;max-height:80vh;overflow-y:auto;padding:18px;border:1px solid rgba(255,255,255,0.08);}
+.modal h2{font-size:16px;margin-bottom:10px;}
+.modal label{display:block;font-size:11px;color:#8892b0;margin:8px 0 3px;}
+.modal textarea,.modal input{width:100%;padding:7px 9px;border-radius:6px;border:1px solid rgba(255,255,255,0.1);font-size:12px;font-family:monospace;background:rgba(0,0,0,0.3);color:#e8ecf4;resize:vertical;}
+.modal .row{display:flex;gap:5px;margin-top:6px;flex-wrap:wrap;}
+.modal .row .btn{flex:1;min-width:60px;font-size:12px;}
+
+.toast{position:fixed;bottom:60px;left:50%;transform:translateX(-50%);background:rgba(18,24,42,0.94);backdrop-filter:blur(12px);color:#e8ecf4;padding:7px 16px;border-radius:8px;font-size:13px;z-index:3000;opacity:0;transition:opacity 0.2s;pointer-events:none;border:1px solid rgba(255,255,255,0.08);white-space:nowrap;}
+.toast.show{opacity:1;}
+
+.leaflet-control-zoom a{background:rgba(18,24,42,0.85)!important;color:#e8ecf4!important;border-color:rgba(255,255,255,0.1)!important;}
+.leaflet-control-attribution{display:none!important;}
+.leaflet-tile{-webkit-filter:saturate(1.05)contrast(1.02);filter:saturate(1.05)contrast(1.02);}
+
+@media(min-width:768px){
+  .top-bar{padding:14px 20px 32px;}
+  .btn{font-size:14px;min-height:40px;padding:8px 16px;}
+  .btn-icon{width:42px;height:42px;font-size:19px;}
+  select.btn{font-size:13px;min-width:110px;}
+  .panel{padding:8px 20px 14px;}
+  .stats{font-size:12px;gap:12px;}
+}
+</style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<!-- Top Bar -->
+<div class="top-bar">
+  <h1>🗺️ 高德地图</h1>
+  <select class="btn" id="style-select">
+    <option value="vector">🗺️ 矢量</option>
+    <option value="vector-hd">🗺️ 高清矢量</option>
+    <option value="satellite">🛰️ 卫星</option>
+    <option value="satellite-label">🛰️ 卫星标注</option>
+  </select>
+  <button class="btn btn-icon" id="btn-locate" title="定位">📍</button>
+  <button class="btn btn-icon" id="btn-add" title="航点">📌</button>
+  <button class="btn btn-icon btn-accent" id="btn-export" title="导出">📤</button>
+</div>
+
+<!-- Bottom Panel -->
+<div class="panel" id="panel">
+  <div class="panel-header" id="panel-header">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:2px;width:100%;">
+      <div class="drag-bar"></div>
+      <div class="stats">
+        <span>🎯 <strong id="wp-count">0</strong></span>
+        <span>📏 <strong id="total-dist">0</strong>m</span>
+        <span><span id="center-coord" style="font-family:monospace;">—</span></span>
+        <span>Z<strong id="zoom-level">—</strong></span>
+      </div>
+    </div>
+  </div>
+  <div class="panel-body" id="panel-body">
+    <div class="actions">
+      <button class="btn btn-primary btn-sm" id="btn-add2">📌 添加</button>
+      <button class="btn btn-sm" id="btn-undo">↩️ 撤销</button>
+      <button class="btn btn-sm btn-danger" id="btn-clear">🗑️ 清空</button>
+    </div>
+    <div class="wp-list" id="wp-list">
+      <div class="empty">点击「📌 添加」→ 点地图标记航点</div>
+    </div>
+  </div>
+</div>
+
+<!-- Export Modal -->
+<div class="modal-overlay" id="export-modal">
+  <div class="modal">
+    <h2>📤 导出</h2>
+    <label>KML（可导入 DJI Pilot）</label>
+    <textarea id="kml-output" rows="5" readonly></textarea>
+    <div class="row">
+      <button class="btn btn-primary btn-sm" id="copy-kml">📋 复制</button>
+      <button class="btn btn-sm" id="download-kml">⬇️ 下载</button>
+    </div>
+    <label>CSV</label>
+    <textarea id="csv-output" rows="3" readonly></textarea>
+    <div class="row">
+      <button class="btn btn-primary btn-sm" id="copy-csv">📋 复制</button>
+      <button class="btn btn-sm" id="download-csv">⬇️ 下载</button>
+    </div>
+    <div class="row" style="margin-top:10px;">
+      <button class="btn" id="close-modal">关闭</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ========== Config ==========
+// 直连高德瓦片服务器（无需 Key、无需代理）
+const TILES = {
+  vector: {
+    url: 'https://webrd{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}',
+    maxZoom: 20, label: '矢量',
+  },
+  'vector-hd': {
+    url: 'https://webrd{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=2&style=8&x={x}&y={y}&z={z}',
+    maxZoom: 20, label: '高清矢量',
+  },
+  satellite: {
+    url: 'https://webst{s}.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}',
+    maxZoom: 18, label: '卫星',
+  },
+  'satellite-label': {
+    url: 'https://webst{s}.is.autonavi.com/appmaptile?style=7&x={x}&y={y}&z={z}',
+    maxZoom: 18, label: '卫星标注',
+  },
+};
+
+// ========== State ==========
+const S = { map: null, markers: [], nextId: 1, addMode: false, layer: null };
+const SUBDOMAINS = ['01', '02', '03', '04'];
+
+// ========== Toast ==========
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('show'), 2000);
+}
+
+// ========== Init ==========
+function initMap() {
+  S.map = L.map('map', {
+    center: [39.90923, 116.397428], zoom: 13,
+    zoomControl: true, attributionControl: false,
+    minZoom: 3, maxZoom: 20,
+  });
+  setTileStyle('vector-hd');
+  S.map.on('moveend zoomend', updateStatus);
+  S.map.on('click', onMapClick);
+  updateStatus();
+}
+
+// ========== Tile ==========
+function setTileStyle(name) {
+  const cfg = TILES[name] || TILES['vector-hd'];
+  if (S.layer) S.map.removeLayer(S.layer);
+  S.layer = L.tileLayer(cfg.url, {
+    maxZoom: cfg.maxZoom, minZoom: 3,
+    subdomains: SUBDOMAINS,
+  }).addTo(S.map);
+  if (S.map.getZoom() > cfg.maxZoom) S.map.setZoom(cfg.maxZoom);
+}
+
+// ========== Status ==========
+function updateStatus() {
+  try {
+    const c = S.map.getCenter();
+    document.getElementById('center-coord').textContent = `${c.lng.toFixed(4)}, ${c.lat.toFixed(4)}`;
+    document.getElementById('zoom-level').textContent = S.map.getZoom();
+    updateStats();
+  } catch(e) {}
+}
+
+// ========== Waypoints ==========
+function addWaypoint(lng, lat, name) {
+  const id = S.nextId++;
+  const label = name || `航点 ${id}`;
+  const m = L.marker([lat, lng], {
+    draggable: true,
+    icon: L.divIcon({
+      className: '',
+      html: `<div style="background:#1a73e8;color:#fff;padding:2px 10px;border-radius:5px;font-size:13px;font-weight:700;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.4);border:2px solid rgba(255,255,255,0.3);">${id}</div>`,
+      iconSize: [0,0], iconAnchor: [0,0],
+    }),
+  }).addTo(S.map);
+  m.bindPopup(`<strong>${label}</strong><br/><span style="color:#666;font-size:12px;font-family:monospace;">${lng.toFixed(6)}, ${lat.toFixed(6)}</span>`);
+  m.on('dragend', e => {
+    const p = e.target.getLatLng();
+    const wp = S.markers.find(w => w.m === m);
+    if (wp) { wp.lng = p.lng; wp.lat = p.lat; renderList(); updateStats(); }
+  });
+  S.markers.push({ id, lng, lat, name: label, m });
+  renderList(); updateStats(); updateExport();
+  return id;
+}
+
+function removeWaypoint(id) {
+  const i = S.markers.findIndex(w => w.id === id);
+  if (i === -1) return;
+  S.map.removeLayer(S.markers[i].m);
+  S.markers.splice(i, 1);
+  renderList(); updateStats(); updateExport();
+}
+
+function clearAll() {
+  if (!S.markers.length) return;
+  S.markers.forEach(w => S.map.removeLayer(w.m));
+  S.markers = []; S.nextId = 1;
+  renderList(); updateStats(); updateExport();
+  toast('🗑️ 已清空');
+}
+
+function undoLast() {
+  if (!S.markers.length) { toast('无撤销'); return; }
+  removeWaypoint(S.markers[S.markers.length-1].id);
+  toast('↩️ 撤销');
+}
+
+function onMapClick(e) {
+  if (!S.addMode) return;
+  addWaypoint(e.latlng.lng, e.latlng.lat);
+}
+
+function toggleAdd() {
+  S.addMode = !S.addMode;
+  const b1 = document.getElementById('btn-add');
+  const b2 = document.getElementById('btn-add2');
+  if (S.addMode) {
+    b1.style.background = '#ff6f00'; b2.style.background = '#ff6f00';
+    S.map.getContainer().style.cursor = 'crosshair';
+    toast('👆 点击地图添加航点');
+  } else {
+    b1.style.background = ''; b2.style.background = '';
+    S.map.getContainer().style.cursor = '';
+    toast('⏸️ 退出');
+  }
+}
+
+function focusWp(id) {
+  const wp = S.markers.find(w => w.id === id);
+  if (!wp) return;
+  S.map.setView([wp.lat, wp.lng], 16);
+}
+
+function renderList() {
+  const el = document.getElementById('wp-list');
+  if (!S.markers.length) {
+    el.innerHTML = '<div class="empty">点击「📌 添加」→ 点地图标记航点</div>';
+    return;
+  }
+  el.innerHTML = S.markers.map((wp, i) => {
+    const d = i > 0 ? dist(S.markers[i-1], wp) : 0;
+    return `<div class="wp-item">
+      <div class="idx">${wp.id}</div>
+      <div class="info">
+        <div class="name">${wp.name}</div>
+        <div class="coord">${wp.lng.toFixed(6)}, ${wp.lat.toFixed(6)}</div>
+        ${d > 0 ? `<div class="dist">⬆️ +${d.toFixed(1)}m</div>` : ''}
+      </div>
+      <button class="act" onclick="focusWp(${wp.id})">🎯</button>
+      <button class="del" onclick="removeWaypoint(${wp.id})">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function updateStats() {
+  document.getElementById('wp-count').textContent = S.markers.length;
+  let t = 0;
+  for (let i = 1; i < S.markers.length; i++) t += dist(S.markers[i-1], S.markers[i]);
+  document.getElementById('total-dist').textContent = t > 0 ? t.toFixed(1) : '0';
+}
+
+function dist(a, b) {
+  const R = 6371000;
+  const dL = (b.lat - a.lat) * Math.PI / 180;
+  const dN = (b.lng - a.lng) * Math.PI / 180;
+  const s = Math.sin(dL/2), t = Math.sin(dN/2);
+  return R * 2 * Math.atan2(Math.sqrt(s*s + Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*t*t), Math.sqrt(1 - (s*s + Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*t*t)));
+}
+
+// ========== Export ==========
+function updateExport() {
+  let kml = `<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2">\n  <Document><name>T100 航点</name>\n`;
+  S.markers.forEach(w => { kml += `    <Placemark><name>${w.name}</name><Point><coordinates>${w.lng},${w.lat},0</coordinates></Point></Placemark>\n`; });
+  if (S.markers.length >= 2) {
+    kml += `    <Placemark><name>航线</name><LineString><coordinates>\n`;
+    S.markers.forEach(w => { kml += `          ${w.lng},${w.lat},0\n`; });
+    kml += `        </coordinates></LineString></Placemark>\n`;
+  }
+  kml += `  </Document>\n</kml>`;
+  let csv = '序号,名称,经度,纬度\n';
+  S.markers.forEach((w, i) => { csv += `${i+1},${w.name},${w.lng},${w.lat}\n`; });
+  document.getElementById('kml-output').value = kml;
+  document.getElementById('csv-output').value = csv;
+}
+
+function dl(text, name, mime) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], {type: mime}));
+  a.download = name; a.click(); URL.revokeObjectURL(a.href);
+}
+
+// ========== Locate ==========
+function doLocate() {
+  if (!navigator.geolocation) { toast('❌ 不支持'); return; }
+  toast('📍 定位中…');
+  navigator.geolocation.getCurrentPosition(
+    p => { S.map.setView([p.coords.latitude, p.coords.longitude], 16); toast('📍 成功'); },
+    () => toast('❌ 定位失败'),
+    { enableHighAccuracy: true, timeout: 10000 }
+  );
+}
+
+// ========== Bind ==========
+function bind() {
+  document.getElementById('style-select').addEventListener('change', e => {
+    setTileStyle(e.target.value);
+    toast('🗺️ 已切换');
+  });
+  document.getElementById('btn-locate').addEventListener('click', doLocate);
+  document.getElementById('btn-add').addEventListener('click', toggleAdd);
+  document.getElementById('btn-add2').addEventListener('click', toggleAdd);
+  document.getElementById('btn-undo').addEventListener('click', undoLast);
+  document.getElementById('btn-clear').addEventListener('click', clearAll);
+  document.getElementById('btn-export').addEventListener('click', () => {
+    updateExport();
+    document.getElementById('export-modal').classList.add('active');
+  });
+
+  let hidden = false;
+  document.getElementById('panel-header').addEventListener('click', () => {
+    hidden = !hidden;
+    document.getElementById('panel-body').classList.toggle('hide', hidden);
+  });
+
+  document.getElementById('close-modal').addEventListener('click', () => document.getElementById('export-modal').classList.remove('active'));
+  document.getElementById('export-modal').addEventListener('click', e => { if (e.target === e.currentTarget) document.getElementById('export-modal').classList.remove('active'); });
+
+  document.getElementById('copy-kml').addEventListener('click', () => navigator.clipboard.writeText(document.getElementById('kml-output').value).then(() => toast('📋 已复制')));
+  document.getElementById('copy-csv').addEventListener('click', () => navigator.clipboard.writeText(document.getElementById('csv-output').value).then(() => toast('📋 已复制')));
+  document.getElementById('download-kml').addEventListener('click', () => dl(document.getElementById('kml-output').value, 't100.kml', 'application/vnd.google-earth.kml+xml'));
+  document.getElementById('download-csv').addEventListener('click', () => dl(document.getElementById('csv-output').value, 't100.csv', 'text/csv'));
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { document.getElementById('export-modal').classList.remove('active'); if (S.addMode) toggleAdd(); }
+  });
+
+  // URL params
+  const p = new URLSearchParams(window.location.search);
+  if (p.get('center')) {
+    const c = p.get('center').split(',');
+    if (c.length === 2) S.map.setView([parseFloat(c[0]), parseFloat(c[1])], parseFloat(p.get('zoom')) || 13);
+  }
+}
+
+// ========== Boot ==========
+window.onload = () => { initMap(); bind(); };
+</script>
+</body>
+</html>

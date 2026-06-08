@@ -1,0 +1,34 @@
+============================================
+  DJI T100 · 高德高清地图服务
+============================================
+
+【网页版航点工具】（T100 浏览器打开）
+  https://perfect-bear-2.loca.lt/app.html
+
+  功能：高清地图 + 打点标记 + 测距 + 导出KML/CSV
+  特点：瓦片直连高德CDN，速度飞快
+
+--------------------------------------------
+
+【T100 自定义地图源 URL】（填入遥控器）
+
+高清矢量（推荐）：
+  https://perfect-bear-2.loca.lt/tile?x={x}&y={y}&z={z}&style=hd
+
+标准矢量：
+  https://perfect-bear-2.loca.lt/tile?x={x}&y={y}&z={z}&style=normal
+
+卫星图：
+  https://perfect-bear-2.loca.lt/tile?x={x}&y={y}&z={z}&style=satellite
+
+卫星标注：
+  https://perfect-bear-2.loca.lt/tile?x={x}&y={y}&z={z}&style=satellite-label
+
+--------------------------------------------
+
+【瓦片服务首页】
+  https://perfect-bear-2.loca.lt
+
+--------------------------------------------
+注意：localtunnel 链接可能过期，如无法访问请联系我重新开启。
+============================================
