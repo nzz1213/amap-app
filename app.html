@@ -69,8 +69,7 @@ select.btn{appearance:none;background:rgba(18,24,42,0.88);padding:6px 10px;min-w
 .leaflet-control-zoom a{background:rgba(18,24,42,0.85)!important;color:#e8ecf4!important;border-color:rgba(255,255,255,0.1)!important;}
 .leaflet-control-attribution{display:none!important;}
 .leaflet-tile{-webkit-filter:saturate(1.05)contrast(1.02);filter:saturate(1.05)contrast(1.02);}
-/* 卫星标注叠加层：mix-blend-mode 让矢量图白底变透明，只保留地名/路名 */
-img.leaflet-tile.label-overlay{mix-blend-mode:multiply!important;}
+/* 卫星标注叠加层：通过自定义 Leaflet Pane 实现 */
 
 /* Color picker */
 .color-picker{display:flex;gap:3px;align-items:center;pointer-events:auto;margin-right:2px;}
@@ -99,7 +98,7 @@ img.leaflet-tile.label-overlay{mix-blend-mode:multiply!important;}
 
 <!-- Top Bar -->
 <div class="top-bar">
-  <h1>🗺️ 高德地图</h1>
+  <h1>DJI T100</h1>
   <select class="btn" id="style-select">
     <option value="vector">🗺️ 矢量</option>
     <option value="vector-hd">🗺️ 高清矢量</option>
@@ -240,17 +239,28 @@ function setTileStyle(name) {
   const cfg = TILES[name] || TILES['vector-hd'];
 
   if (name === 'satellite-label') {
-    // 双层瓦片：卫星底图 + 矢量标注覆盖层（mix-blend-mode 去白底，只留地名）
+    // 双层瓦片：卫星底图 + 矢量标注覆盖层
+    // 使用独立 Leaflet Pane 并设置 mix-blend-mode: multiply
+    // 矢量图的白色背景变透明，只保留黑色地名/路名叠加在卫星图上
     S.tileLayer = L.tileLayer(cfg.url, {
       maxZoom: cfg.maxZoom, minZoom: 3,
       subdomains: SUBDOMAINS,
     }).addTo(S.map);
 
+    // 创建或获取 labels 专用 pane
+    var labelsPane = S.map.getPane('labels');
+    if (!labelsPane) {
+      labelsPane = S.map.createPane('labels');
+    }
+    labelsPane.style.mixBlendMode = 'multiply';
+    labelsPane.style.pointerEvents = 'none';
+    labelsPane.style.zIndex = 500;
+
     S.labelLayer = L.tileLayer(cfg.labelUrl, {
+      pane: 'labels',
       maxZoom: cfg.maxZoom, minZoom: 3,
       subdomains: SUBDOMAINS,
       opacity: 0.85,
-      className: 'label-overlay',
     }).addTo(S.map);
   } else {
     S.tileLayer = L.tileLayer(cfg.url, {
