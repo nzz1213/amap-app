@@ -69,7 +69,8 @@ select.btn{appearance:none;background:rgba(18,24,42,0.88);padding:6px 10px;min-w
 .leaflet-control-zoom a{background:rgba(18,24,42,0.85)!important;color:#e8ecf4!important;border-color:rgba(255,255,255,0.1)!important;}
 .leaflet-control-attribution{display:none!important;}
 .leaflet-tile{-webkit-filter:saturate(1.05)contrast(1.02);filter:saturate(1.05)contrast(1.02);}
-/* 卫星标注叠加层：通过自定义 Leaflet Pane 实现 */
+/* 卫星标注叠加层：通过自定义 Leaflet Pane + CSS 双重保障 */
+.leaflet-labels-pane,.leaflet-labels-pane .leaflet-tile{mix-blend-mode:multiply!important;}
 
 /* Color picker */
 .color-picker{display:flex;gap:3px;align-items:center;pointer-events:auto;margin-right:2px;}
@@ -252,15 +253,13 @@ function setTileStyle(name) {
     if (!labelsPane) {
       labelsPane = S.map.createPane('labels');
     }
-    labelsPane.style.mixBlendMode = 'multiply';
     labelsPane.style.pointerEvents = 'none';
-    labelsPane.style.zIndex = 500;
 
     S.labelLayer = L.tileLayer(cfg.labelUrl, {
       pane: 'labels',
       maxZoom: cfg.maxZoom, minZoom: 3,
       subdomains: SUBDOMAINS,
-      opacity: 0.85,
+      opacity: 0.65,
     }).addTo(S.map);
   } else {
     S.tileLayer = L.tileLayer(cfg.url, {
