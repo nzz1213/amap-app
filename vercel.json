@@ -1,0 +1,12 @@
+{
+  "functions": {
+    "api/tile.js": {
+      "memory": 128,
+      "maxDuration": 10
+    }
+  },
+  "rewrites": [
+    { "source": "/tile", "destination": "/api/tile" },
+    { "source": "/(.*)", "destination": "/$1" }
+  ]
+}
