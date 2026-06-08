@@ -6,8 +6,6 @@
     }
   },
   "rewrites": [
-    { "source": "/", "destination": "/app.html" },
-    { "source": "/tile", "destination": "/api/tile" },
-    { "source": "/(.*)", "destination": "/$1" }
+    { "source": "/tile", "destination": "/api/tile" }
   ]
 }
